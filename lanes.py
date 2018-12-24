@@ -18,8 +18,9 @@ def canny(image):
 
 def region_of_interest(image):
     height = image.shape[0]
+    length = image.shape[1]
     polygons = np.array([
-        [(200, height), (1100, height), (550, 220)]
+        [(0, height), (length, height), (int(length/2), int(height/2))]
     ])
 
     # Create a copy of the image with black pixels
@@ -37,9 +38,10 @@ def display_lines(image, lines):
 
     if lines is not None:
         for line in lines:
-            x1, y1, x2, y2 = line.reshape(4)
+            if line is not None:
+                x1, y1, x2, y2 = line.reshape(4)
 
-            cv2.line(line_image, pt1=(x1, y1), pt2=(x2, y2), color=(255, 0, 0), thickness=5)
+                cv2.line(line_image, pt1=(x1, y1), pt2=(x2, y2), color=(255, 0, 0), thickness=5)
 
     return line_image
 
@@ -48,8 +50,18 @@ def make_coordinates(image, line_parameters):
     slope, intercept = line_parameters
     y1 = image.shape[0]
     y2 = int(y1*(3/5))
+
     x1 = int((y1 - intercept) / slope)
     x2 = int((y2 - intercept) / slope)
+    if x1 < 0:
+        x1 = 0
+    elif x1 > image.shape[1]:
+        x1 = image.shape[1] - 1
+
+    if x2 < 0:
+        x2 = 0
+    elif x2 > image.shape[1]:
+        x2 = image.shape[1] - 1
 
     return np.array([x1, y1, x2, y2])
 
@@ -57,6 +69,8 @@ def make_coordinates(image, line_parameters):
 def average_slope_intercept(image, lines):
     left_fit = []
     right_fit = []
+    left_line = None
+    right_line = None
 
     if lines is not None:
         for line in lines:
@@ -69,19 +83,23 @@ def average_slope_intercept(image, lines):
             else:
                 right_fit.append((slope, intercept))
 
-        left_fit_average = np.average(left_fit, axis=0)
-        right_fit_average = np.average(right_fit, axis=0)
-        left_line = make_coordinates(image, left_fit_average)
-        right_line = make_coordinates(image, right_fit_average)
+        if left_fit:
+            left_fit_average = np.average(left_fit, axis=0)
+            left_line = make_coordinates(image, left_fit_average)
+
+        if right_fit:
+            right_fit_average = np.average(right_fit, axis=0)
+            right_line = make_coordinates(image, right_fit_average)
 
         return np.array([left_line, right_line])
 
     else:
         return None
 
-# Import image using openCV
 """
-raw_image = cv2.imread('test_image.jpg')
+# Import image using openCV
+#raw_image = cv2.imread('test_image.jpg')
+raw_image = cv2.imread('maxresdefault.jpg')
 lane_image = np.copy(raw_image)
 
 canny_image = canny(lane_image)
@@ -111,7 +129,7 @@ cap = cv2.VideoCapture("road_video.mp4")
 while(cap.isOpened()):
     _, frame = cap.read()
     print(frame.shape)
-    #resized_frame = frame[0:360, 100:350]
+    #resized_frame = frame[0:180, :]
     resized_frame = frame
 
     canny_image = canny(resized_frame)
